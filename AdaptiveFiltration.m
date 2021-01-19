@@ -1,8 +1,15 @@
 clear all 
 close all
 
-% ADAPTIVE FILTRE
 
+
+%*********************************%
+% ADAPTIVE FILTRATION APPLICATION %
+%*********************************%
+
+
+
+% STEPS: a) ... j)
 
 % STEP:a)____________________________________________________
 % load audio record
@@ -16,7 +23,7 @@ n = 0:1/(ns-1):1;
 
 plot(n,s), grid									
 	title('Semnalul vocal neprelucrat') 
-	xlabel('Timp (s)')
+	xlabel('Timp')
 	ylabel('s(n)')
 
     
@@ -69,13 +76,16 @@ plot((0:(ns-1))/ns*Fe, S2), grid
 
 % STEP:d)____________________________________________________
 % filter s2 in a FTJ, fc = 7kHz
+% 7kHz is perfect for intelligible and naturalness
+% (50Hz ... 7kHz is large band voice signal)
 
 % create FTJ IIR
 % 7KHz is double voice max fignal freq(2 * 3.4k = 6.8, round upper to 7k)
+% freqz(b,a,no_points_fot_dft, fe)
 [b, a] = butter(12,7000/(Fe/2));
 [H, w] = freqz(b,a,[],Fe);
 figure
-plot(w,abs(H))											
+plot(w,abs(H)),grid											
 	title('Filtru digital de 7KHz') 
 	xlabel('F(Hz)')
 	ylabel('|H(z)|')
@@ -96,15 +106,17 @@ plot((0:(ns-1))/ns*Fe, S), grid
  	ylabel('|S(k)|')
     
 % save signal 's' on disk
-audiowrite('signal.wav', s, Fe);
+audiowrite('C:\signal.wav', s, Fe);
 
 
 
 % STEP:e)____________________________________________________
 % create Distortion filter
 % signal 's' is now input for Distortion filter
+% Distortion filter order(as of any IIR filter) = min(N,M) - 1
+% so in this case 16
 
-% using 'b' and 'a' given coeffs
+% b and a are:
 b = [0.1662, -0.0943, 0.2892, -0.1227, 0.2348, 0.0180, 0.0415, 0.1388, -0.0616, 0.1290, -0.0434, 0.0420, -0.0010, -0.0009, 0.0032, -0.0015, 0.0056];
 a = [1.0000, -0.7548, 3.4400, -1.6385, 4.8436, -0.8156, 3.2813, 1.2582, 0.6571, 2.1922, -0.4792, 1.4546, -0.2905, 0.4693, -0.0208, 0.0614, 0.0120];
 [Hd, wd] = freqz(b,a,[], Fe);
@@ -137,13 +149,12 @@ plot((0:(ns-1))/ns*Fe, X), grid
  	ylabel('|X(k)|')
     
 % save signal 'x' on disk
-audiowrite('signal_distorted.wav', x, Fe);
+audiowrite('C:\signal_distorted.wav', x, Fe);
 
 
 
 % STEP:g)____________________________________________________
 % implement adaptive filter using NLMS algorithm
-% nlms function is not included
 
 %generate noise
 s_aux = randn(size(n));
@@ -158,12 +169,12 @@ x_aux = filter(b,a,s_aux);
 x = x_aux;
 d = s_aux;
 
-% calculate energy
-N = 1;
-M = fix(ns/N);	%nr. de ferestre de analiza pe durata semnalului s;
-						%trebuie sa fie numar intreg!
+% calculate energy algorithm
+% choose N in range 10...30ms
+N = 160; % window = 160 / 16k = 10ms or N = 480 for 30ms
+M = fix(ns/N);	%no. of analysis windows during the signal s;
 
-E = zeros(1,M);	%initializare
+E = zeros(1,M);	%initialize
 i = 1;
 
 while i <= M
@@ -172,7 +183,7 @@ while i <= M
     end
     i = i+1;
 end
-% end of energy calculus
+% end of energy calculus algorithm
 
 % Plot pseudo-energy of input signal in F.A.
 n1 = 0:1/(M-1):1;
@@ -185,7 +196,7 @@ plot(n1,E)
 % assing parameters
 mu = 0.1; sigma = sum(E); alpha = 0.01; L = 50;
 
-% create F.A. with all above parameters and pass them to nlms.m
+% create F.A. with all above parameters and pass them to nlms.m function
 b = zeros(1,L+1); px=0;
 [y_aux,b,px] = nlms(x,d,b,mu,sigma,alpha,px);
 
@@ -225,7 +236,7 @@ plot(n,x_aux)
 
 X_AUX = abs(fft(x_aux)); 
 figure
-plot((0:(ns-1))/ns*Fe, X), grid
+plot((0:(ns-1))/ns*Fe, X_AUX), grid
  	title('Modul spectru discret, semnalul X_AUX(zg gaussian)') 
  	xlabel('Frecventa (Hz)')
  	ylabel('|X_AUX(k)|')
@@ -264,7 +275,9 @@ plot(wd,abs(product2))
 % STEP:i)____________________________________________________
 % x -> |F.A.| -> y
     
-% b coeffs are those returnes from nlms
+% b coeffs are those returned from nlms
+% a coffes(1...N) are 0 (Adaptive Filters are FIR)
+% a0 = 1 because of "ecuatia cu diferente finite"
 [H,w] = freqz(b,1,[],Fe);
 figure
 plot(wd,abs(Hd),':b','linewidth',2), grid				
@@ -280,10 +293,10 @@ hold off
 [x,Fe] = audioread('signal_distorted.wav');
 %sound(x, Fe);
 %pause(8)
-y_final = filter(b,1,x);
-%sound(y_final, Fe)
+y_bossul_bossilor = filter(b,1,x);
+%sound(y_bossul_bossilor, Fe)
 
-audiowrite('signal_recuperat.wav', x, Fe);
+audiowrite('C:\signal_recuperat.wav', x, Fe);
 
 
 
@@ -332,9 +345,9 @@ plot(n,y_bossul_bossilor)
 	xlabel('Time(s)')
 	ylabel('y(n)')
 
-Y_final = abs(fft(y_final)); 
+Y_bossul_bossilor = abs(fft(y_bossul_bossilor)); 
 figure
-plot((0:(ns-1))/ns*Fe, Y_final), grid
+plot((0:(ns-1))/ns*Fe, Y_bossul_bossilor), grid
  	title('Modul spectru discret semnalul util recuperat prin F.A.') 
  	xlabel('Frecventa (Hz)')
  	ylabel('|Y(k)|')
